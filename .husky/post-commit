@@ -1,0 +1,61 @@
+# + This script is used to generate a changelog file from the commit messages.
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+. "$(dirname -- "$0")/constants"
+. "$(dirname -- "$0")/../.env"
+
+#!/bin/sh
+
+if [ ! $VERSION_CONTROL_HOST ]; then
+  VERSION_CONTROL_HOST="https://gitlab.com"
+fi
+remote=$(git remote show)
+
+# * function to parse remote url from git config
+gitremoteurl() {
+  local rmt=$1; shift || { printf "Usage: gitremoteurl [REMOTE]\n" >&2; return 1; }
+  local url
+
+  # ! uncomment the following line to debug only
+  # printf "%s Remote URL: $(git config --get remote.${rmt}.url)"
+
+  # check if remote exists 
+  if [ ! "$(git config --get remote.${rmt}.url)" ]; then
+    printf "%s\n" "Error: not a valid remote name" >&2
+    return 1
+  fi
+
+  url=$(git config --get remote.${rmt}.url)
+  url="${url%%.git}"
+
+
+  if echo "$url" | grep -q "^git@"; then
+    url="$VERSION_CONTROL_HOST/${url##*:}"
+  fi
+
+  # ! uncomment the following line to debug only
+  # printf "%s >>> Parsed URL: $url"
+
+  echo "$url"
+}
+
+# + prepare commit messages in the desired format
+commit_messages=$(git log --branches="*" --all --remotes --topo-order --pretty="format:##%d%n%n### [%cD] — %cn | [%h]($(gitremoteurl $remote)/-/commit/%H)%n%n    %s%n%n> %b%n")
+changelog_file="CHANGELOG.md"
+
+echo "\n\n${BLUE}Generating ${YELLOW}$changelog_file${RESET} ${BLUE}from${RESET} ${YELLOW}$(basename "$0")${RESET} ${BLUE}hook. Courtesy: ${RESET}\e]8;;https://www.linkedin.com/in/emranffl\e\\@emranffl\e]8;;\e\\n\n"
+
+# check if Changelog.md file exists, if not create one
+if [ ! -f "$changelog_file" ]; then
+  # create a new file
+  touch "$changelog_file"
+fi
+
+# replace contents of the existing file
+echo "# CHANGELOG\n" > "$changelog_file"
+echo "**NB:** *This changelog is generated from \`"$(basename "$0")"\` hook. Courtesy: [@emranffl](https://www.linkedin.com/in/emranffl)*\n" >> "$changelog_file"
+# append commit messages to the changelog file
+echo "$commit_messages" >> "$changelog_file"
+
+exit 0

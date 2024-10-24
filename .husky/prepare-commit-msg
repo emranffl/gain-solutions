@@ -1,0 +1,10 @@
+# + This script is used to disable commiting from the VS Code source control.
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+. "$(dirname -- "$0")/constants"
+
+#!/bin/sh
+
+exec < /dev/tty || true
+# exec < /dev/tty && npx cz --hook || true

@@ -1,0 +1,74 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELED
+}
+
+enum ProductCategory {
+  ELECTRONICS
+  FASHION
+  HOME_APPLIANCES
+  BOOKS
+  GROCERIES
+  TOYS
+  SPORTS
+  BEAUTY
+}
+
+model User {
+  id              BigInt     @id @default(autoincrement())
+  name            String     @db.VarChar(255)
+  email           String     @unique @db.VarChar(255)
+  password        String     @db.VarChar(255)
+  createdAt       DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime   @default(now()) @db.Timestamptz(6)
+  orders          Order[]
+}
+
+model Product {
+  id              BigInt           @id @default(autoincrement())
+  name            String           @db.VarChar(255)
+  description     String?          @db.Text
+  price           Decimal          @db.Decimal(10, 2)
+  stock           Int              @default(0)
+  category        ProductCategory
+  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @db.Timestamptz(6)
+  deletedAt       DateTime?        @db.Timestamptz(6)
+  orders          OrderItem[]
+}
+
+model Order {
+  id              BigInt           @id @default(autoincrement())
+  userId          BigInt
+  totalAmount     Decimal          @db.Decimal(10, 2)
+  status          OrderStatus
+  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @db.Timestamptz(6)
+  canceledAt      DateTime?        @db.Timestamptz(6)
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items           OrderItem[]
+}
+
+model OrderItem {
+  id              BigInt           @id @default(autoincrement())
+  orderId         BigInt
+  productId       BigInt
+  quantity        Int
+  unitPrice       Decimal          @db.Decimal(10, 2)
+  totalPrice      Decimal          @db.Decimal(10, 2)
+  order           Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product         Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+}

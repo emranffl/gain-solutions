@@ -1,0 +1,7 @@
+node_modules/
+src/assets/
+dist/
+*.log
+next.config.js
+tsconfig.json
+*test*

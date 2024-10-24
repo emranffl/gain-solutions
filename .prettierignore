@@ -1,0 +1,16 @@
+# misc
+*.md
+node_modules
+.next
+.env*
+.gitignore
+
+# lock files
+pnpm-lock.yaml
+yarn.lock
+bun.lockb
+
+# type declarations
+next-env.d.ts
+react-table-config.d.ts
+reset.d.ts

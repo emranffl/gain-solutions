@@ -1,0 +1,183 @@
+# + This script is used to check build errors before pushing to the remote repository.
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+. "$(dirname -- "$0")/constants"
+. "$(dirname -- "$0")/../.env"
+
+#!/bin/sh
+
+echo "\n\n${BLUE}Running predifined task(s) from${RESET} ${YELLOW}$(basename "$0")${RESET} ${BLUE}hook. Courtesy: ${RESET}\e]8;;https://www.linkedin.com/in/emranffl\e\\@emranffl\e]8;;\e\\n\n"
+
+# + if PACKAGE_MANAGER is not set in .env, set it to pnpm as default
+if [ ! $PACKAGE_MANAGER ]; then
+  PACKAGE_MANAGER="pnpm"
+fi
+
+echo "\n${BLUE}Current PACKAGE_MANAGER:${RESET} ${YELLOW}$PACKAGE_MANAGER${RESET}"
+
+# + if bun is set as the package manager
+if [ "$PACKAGE_MANAGER" = "bun" ]; then
+  # - test with bun
+  echo "\n${BLUE}bun run test${RESET}"
+
+  # run test
+  bun run test || {
+    # * task fail block
+
+    echo "\n${BOLD_RED}test${RESET} ${RED}failed. Task execution aborted, fix the specified error and try again.${RESET}\n"
+
+    # check if command ran from git source control in vscode
+    if ! [ -t 1 ]; then
+      # show error text in an alert box on Linux 
+      if command -v zenity &> /dev/null; then
+        zenity --error --text="'test' failed. Task ececution aborted, fix the errors and try again."
+      fi
+
+      # show error text in an alert box on macOS
+      if command -v osascript &> /dev/null; then
+        osascript -e 'display alert "test failed" message "Task ececution aborted, fix the errors and try again." as warning'
+      fi
+    fi
+
+    exit 1
+  }
+
+  # - clean build with bun
+  echo "\n${BLUE}bun run clean-build-pmb${RESET}"
+
+  # run clean-build-pmb
+  bun run clean-build-pmb || {
+    # * task fail block
+
+    echo "\n${BOLD_RED}clean-build-pmb${RESET} ${RED}failed. Git push aborted, fix the specified error and try again.${RESET}\n"
+
+    # check if command ran from git source control in vscode
+    if ! [ -t 1 ]; then
+      # show error text in an alert box on Linux 
+      if command -v zenity &> /dev/null; then
+        zenity --error --text="'clean-build-pmb' failed. Git push aborted, fix the errors and try again."
+      fi
+
+      # show error text in an alert box on macOS
+      if command -v osascript &> /dev/null; then
+        osascript -e 'display alert "clean-build-pmb failed" message "Git push aborted, fix the errors and try again." as warning'
+      fi
+    fi
+
+    exit 1
+  }
+
+  exit 0
+fi
+
+# + if yarn is set as the package manager
+if [ "$PACKAGE_MANAGER" = "yarn" ]; then
+  # - test with yarn
+  echo "\n${BLUE}yarn run test${RESET}"
+
+  # run test
+  yarn run test || {
+    # * task fail block
+
+    echo "\n${BOLD_RED}test${RESET} ${RED}failed. Task execution aborted, fix the specified error and try again.${RESET}\n"
+
+    # check if command ran from git source control in vscode
+    if ! [ -t 1 ]; then
+      # show error text in an alert box on Linux 
+      if command -v zenity &> /dev/null; then
+        zenity --error --text="'test' failed. Task ececution aborted, fix the errors and try again."
+      fi
+
+      # show error text in an alert box on macOS
+      if command -v osascript &> /dev/null; then
+        osascript -e 'display alert "test failed" message "Task ececution aborted, fix the errors and try again." as warning'
+      fi
+    fi
+
+    exit 1
+  }
+
+  # - clean build with yarn
+  echo "\n${BLUE}yarn run clean-build-pmy${RESET}"
+
+  # run clean-build-pmy
+  yarn run clean-build-pmy || {
+    # * task fail block
+
+    echo "\n${BOLD_RED}clean-build-pmy${RESET} ${RED}failed. Git push aborted, fix the specified error and try again.${RESET}\n"
+
+    # check if command ran from git source control in vscode
+    if ! [ -t 1 ]; then
+      # show error text in an alert box on Linux 
+      if command -v zenity &> /dev/null; then
+        zenity --error --text="'clean-build-pmy' failed. Git push aborted, fix the errors and try again."
+      fi
+
+      # show error text in an alert box on macOS
+      if command -v osascript &> /dev/null; then
+        osascript -e 'display alert "clean-build-pmy failed" message "Git push aborted, fix the errors and try again." as warning'
+      fi
+    fi
+
+    exit 1
+  }
+
+  exit 0
+fi
+
+# + if pnpm is set as the package manager
+if [ "$PACKAGE_MANAGER" = "pnpm" ]; then
+  echo "\n${BLUE}pnpm run test${RESET}"
+
+  # run test
+  pnpm run test || {
+    # * task fail block
+
+    echo "\n${BOLD_RED}test${RESET} ${RED}failed. Task execution aborted, fix the specified error and try again.${RESET}\n"
+    echo "\n\n${GREEN}Courtesy: https://www.linkedin.com/in/emranffl${RESET}\n\n"
+
+    # check if command ran from git source control in vscode
+    if ! [ -t 1 ]; then
+      # show error text in an alert box on Linux 
+      if command -v zenity &> /dev/null; then
+        zenity --error --text="'test' failed. Task ececution aborted, fix the errors and try again."
+      fi
+
+      # show error text in an alert box on macOS
+      if command -v osascript &> /dev/null; then
+        osascript -e 'display alert "test failed" message "Task ececution aborted, fix the errors and try again." as warning'
+      fi
+    fi
+
+    exit 1
+  }
+
+  # - clean build with pnpm
+  echo "\n${BLUE}pnpm run clean-build${RESET}"
+
+  # run clean-build
+  pnpm run clean-build || {
+    # + task fail block
+
+    echo "\n${BOLD_RED}clean-build${RESET} ${RED}failed. Git push aborted, fix the specified error and try again.${RESET}\n"
+    echo "\n\n${GREEN}Courtesy: https://www.linkedin.com/in/emranffl${RESET}\n\n"
+
+    # check if command ran from git source control in vscode
+    if ! [ -t 1 ]; then
+      # show error text in an alert box on Linux 
+      if command -v zenity &> /dev/null; then
+        zenity --error --text="'clean-build' failed. Git push aborted, fix the errors and try again."
+      fi
+
+      # show error text in an alert box on macOS
+      if command -v osascript &> /dev/null; then
+        osascript -e 'display alert "clean-build failed" message "Git push aborted, fix the errors and try again." as warning'
+      fi
+    fi
+
+    exit 1
+  }
+
+  exit 0
+fi

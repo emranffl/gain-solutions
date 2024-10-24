@@ -1,0 +1,11 @@
+# + This script is used to format the code before committing.
+
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+. "$(dirname -- "$0")/constants"
+
+#!/bin/sh
+
+echo "\n\n${BLUE}Formatting staged files from${RESET} ${YELLOW}$(basename "$0")${RESET} ${BLUE}hook. Courtesy: ${RESET}\e]8;;https://www.linkedin.com/in/emranffl\e\\@emranffl\e]8;;\e\\n\n"
+
+pnpm run pre-commit
