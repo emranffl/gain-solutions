@@ -6,8 +6,8 @@ import { NextRequest, NextResponse } from "next/server"
 
 export const updateAuthenticatedUser = async (req: NextRequest) => {
   try {
+    // Get authenticated user
     const user = await parseUserInfo(req)
-
     if (user instanceof NextResponse) {
       return user
     }

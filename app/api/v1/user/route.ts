@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server"
 import { getAuthenticatedUser } from "./GetAuthenticatedUser"
-import { updateAuthenticatedUser } from "./updateAuthenticatedUser"
+import { updateAuthenticatedUser } from "./UpdateAuthenticatedUser"
 
 export async function GET(req: NextRequest) {
   return await getAuthenticatedUser(req)
