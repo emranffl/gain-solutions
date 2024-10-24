@@ -24,8 +24,6 @@ export async function middleware(req: NextRequest) {
       audience: String(req.headers.get("user-agent")),
     })
 
-    console.log("Payload: ", payload)
-
     // If verification is successful, continue to the next middleware or the route handler
     return NextResponse.next({ headers: { [USER_INFO_HEADER_KEY_NAME]: payload.id as string } })
   } catch (error) {

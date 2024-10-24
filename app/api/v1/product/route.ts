@@ -6,7 +6,9 @@ export async function POST(req: NextRequest) {
   return await upsertProduct(req)
 }
 
-export async function PUT(req: NextRequest) {}
+export async function PUT(req: NextRequest) {
+  return await upsertProduct(req)
+}
 
 export async function DELETE(req: NextRequest) {
   return await deleteProduct(req)
