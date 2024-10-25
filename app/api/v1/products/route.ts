@@ -5,15 +5,15 @@ import { responsePaginationHandler } from "@utils/response-pagination-handler"
 import { NextRequest } from "next/server"
 
 export async function GET(req: NextRequest) {
-  const searchParams = req.nextUrl.searchParams
-  const { skip, limit, page } = paginationHandler(req)
-  const sort = searchParams.get("sort") || "createdAt"
-  const order = searchParams.get("order") || "desc"
-  const query = {
-    deletedAt: null, // Exclude soft-deleted products
-  }
-
   try {
+    const searchParams = req.nextUrl.searchParams
+    const { skip, limit, page } = paginationHandler(req)
+    const sort = searchParams.get("sort") || "createdAt"
+    const order = searchParams.get("order") || "desc"
+    const query = {
+      deletedAt: null, // Exclude soft-deleted products
+    }
+
     // Retrieve the total count of products for pagination
     const totalCount = await prisma.product.count({
       where: query,
