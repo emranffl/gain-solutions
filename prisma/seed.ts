@@ -1,0 +1,142 @@
+// prisma/seed.ts
+import { faker } from "@faker-js/faker"
+import { PrismaClient } from "@prisma/client"
+
+const prisma = new PrismaClient()
+
+async function main(count = 10) {
+  console.log("Start seeding...")
+
+  // + Seed Users
+  const userData = Array.from({ length: count }).map(() => ({
+    name: faker.person.fullName(),
+    email: faker.internet.email(),
+    password: faker.internet.password(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }))
+
+  await prisma.user.createMany({ data: userData })
+  console.log(`Seeded ${userData.length} users.`)
+
+  // Get the user ID range
+  const users = await prisma.user.findMany()
+  const userIds = users.map((user) => user.id).sort()
+  const { min: minUserId, max: maxUserId } = {
+    min: userIds[0],
+    max: userIds[userIds.length - 1],
+  }
+
+  // + Seed Products
+  const productData = Array.from({ length: count }).map(() => ({
+    name: faker.commerce.productName(),
+    description: faker.commerce.productDescription(),
+    price: parseFloat(
+      faker.commerce.price({
+        dec: 2,
+        min: 100,
+        max: 1_00_000,
+      })
+    ),
+    stock: faker.number.int({ min: 1, max: 100 }),
+    category: faker.helpers.arrayElement([
+      "ELECTRONICS",
+      "FASHION",
+      "HOME_APPLIANCES",
+      "BOOKS",
+      "GROCERIES",
+      "TOYS",
+      "SPORTS",
+      "BEAUTY",
+    ]),
+  }))
+
+  await prisma.product.createMany({ data: productData })
+  console.log(`Seeded ${productData.length} products.`)
+
+  // + Seed Orders with random items
+  const orderData = Array.from({ length: count }).map(() => ({
+    userId: faker.number.int({ min: Number(minUserId), max: Number(maxUserId) }), // Use the seeded user ID range
+    totalAmount: 0, // Will be calculated based on OrderItems
+    status: faker.helpers.arrayElement(["PENDING", "PROCESSING", "SHIPPED", "DELIVERED"]),
+  }))
+
+  const createdOrders = await prisma.order.createMany({ data: orderData })
+  console.log(`Seeded ${createdOrders.count} orders.`)
+
+  // Get the product ID range
+  const products = await prisma.product.findMany()
+  const productIds = products.map((product) => product.id).sort()
+  const { minId, maxId } = { minId: productIds[0], maxId: productIds[productIds.length - 1] }
+
+  // + Seed OrderItems with stock validation
+  const orderItemsData = []
+  for (let i = 1; i <= count; i++) {
+    // Generate random number of items per order
+    const numberOfItems = faker.number.int({ min: 1, max: 7 })
+    let orderTotalAmount = 0
+
+    for (let j = 0; j < numberOfItems; j++) {
+      const productId = faker.number.int({ min: Number(minId), max: Number(maxId) })
+      const product = products.find((product) => Number(product.id) === productId)
+
+      if (!product) continue // Skip if product doesn't exist
+
+      const maxOrderQuantity = Math.min(product.stock, 10)
+      const quantity = faker.number.int({ min: 1, max: maxOrderQuantity })
+
+      // Validate that the order quantity does not exceed the stock
+      if (quantity > product.stock) {
+        console.log(`Skipping product ${productId} due to insufficient stock`)
+        continue
+      }
+
+      const unitPrice = parseFloat(product.price.toString())
+      const totalPrice = unitPrice * quantity
+      orderTotalAmount += totalPrice
+
+      orderItemsData.push({
+        orderId: i,
+        productId,
+        quantity,
+        unitPrice,
+        totalPrice,
+      })
+    }
+
+    // Update the total amount for the order
+    await prisma.order.update({
+      where: { id: i },
+      data: { totalAmount: orderTotalAmount },
+    })
+  }
+
+  // + Batch update products stock
+  const stockUpdates = orderItemsData.map(({ productId, quantity }) => ({
+    id: productId,
+    newStock: products.find((p) => Number(p.id) === productId)!.stock - quantity,
+  }))
+
+  await Promise.all(
+    stockUpdates.map(({ id, newStock }) =>
+      prisma.product.update({
+        where: { id },
+        data: { stock: newStock },
+      })
+    )
+  )
+
+  await prisma.orderItem.createMany({ data: orderItemsData })
+  console.log(`Seeded ${orderItemsData.length} order items.`)
+
+  console.log("Seeding finished.")
+}
+
+main()
+  .catch((e) => {
+    console.error("Error seeding: ", e)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })
