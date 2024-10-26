@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "NODE_OPTIONS='--max-old-space-size=6144 --trace-warnings --inspect --trace-uncaught' rm -rf .next && next dev",
-    "build": "pnpm run db-generate && rm -rf .next && NODE_ENV=production next build && pnpm run db-push && pnpm run db-seed -t",
+    "build": "pnpm run db-generate && rm -rf .next && NODE_ENV=production next build && pnpm run db-push",
     "build-test": "rm -rf .next && NODE_ENV=test next build",
     "clean-install": "rm -rf node_modules pnpm-lock.yaml yarn.lock bun.lockb package-lock.json && pnpm install",
     "clean-install-pmy": "rm -rf node_modules pnpm-lock.yaml yarn.lock bun.lockb package-lock.json && yarn",
