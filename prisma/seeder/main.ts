@@ -1,11 +1,13 @@
 import { faker } from "@faker-js/faker"
 import { OrderStatus, PrismaClient, ProductCategory } from "@prisma/client"
 import { hash } from "bcrypt"
+import { logExecutionTime } from "../../utils/time-log"
 
 const prisma = new PrismaClient()
 
 export const main = async (count = 10) => {
   console.log("Start seeding...")
+  // + Seed Users
   const hashedPassword = await hash("alice1234", 10)
   const staticUserData = [
     {
@@ -17,25 +19,24 @@ export const main = async (count = 10) => {
     },
   ]
 
-  // + Seed Users
-  let userData = [
-    ...staticUserData,
-    ...(await Promise.all(
-      Array.from({ length: count }).map(async () => {
-        const recentDate = faker.date.recent()
-        return {
-          name: faker.person.fullName(),
-          email: faker.internet.email(),
-          password: await hash(faker.internet.password(), 10),
-          createdAt: recentDate,
-          updatedAt: recentDate,
-        }
-      })
-    )),
-  ]
+  const fakeUser = async () => {
+    const recentDate = faker.date.recent()
+    return {
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: await hash(faker.internet.password(), 10),
+      createdAt: recentDate,
+      updatedAt: recentDate,
+    }
+  }
 
-  await prisma.user.createMany({ data: userData })
-  console.log(`Seeded ${userData.length} users.`)
+  await logExecutionTime("Seeding users", async () => {
+    const fakeUsers = async () => faker.helpers.multiple(fakeUser, { count: count - 1 })
+    let userData = [...staticUserData, ...(await Promise.all(await fakeUsers()))]
+
+    await prisma.user.createMany({ data: userData, skipDuplicates: true })
+    console.log(`Seeded ${userData.length} users.`)
+  })
 
   // Get the user ID range
   const users = await prisma.user.findMany()
@@ -46,25 +47,31 @@ export const main = async (count = 10) => {
   }
 
   // + Seed Products
-  const productData = Array.from({ length: count }).map(() => ({
-    name: faker.commerce.productName(),
-    description: faker.commerce.productDescription(),
-    price: parseFloat(
-      faker.commerce.price({
-        dec: 2,
-        min: 100,
-        max: 1_00_000,
-      })
-    ),
-    stock: faker.number.int({ min: 1, max: 100 }),
-    category: faker.helpers.arrayElement(Object.values(ProductCategory)),
-  }))
+  const fakeProduct = () => {
+    return {
+      name: faker.commerce.productName(),
+      description: faker.commerce.productDescription(),
+      price: parseFloat(
+        faker.commerce.price({
+          dec: 2,
+          min: 100,
+          max: 1_00_000,
+        })
+      ),
+      stock: faker.number.int({ min: 1, max: 100 }),
+      category: faker.helpers.arrayElement(Object.values(ProductCategory)),
+    }
+  }
 
-  await prisma.product.createMany({ data: productData })
-  console.log(`Seeded ${productData.length} products.`)
+  await logExecutionTime("Seeding products", async () => {
+    const fakeProducts = faker.helpers.multiple(fakeProduct, { count })
+
+    await prisma.product.createMany({ data: fakeProducts, skipDuplicates: true })
+    console.log(`Seeded ${fakeProducts.length} products.`)
+  })
 
   // + Seed Orders with random items
-  const orderData = Array.from({ length: count }).map(() => {
+  const fakeOrder = () => {
     const status = faker.helpers.arrayElement(Object.values(OrderStatus))
     const recentDate = faker.date.recent()
     return {
@@ -79,10 +86,14 @@ export const main = async (count = 10) => {
             new Date(recentDate.getTime() + faker.number.int({ min: 1, max: 24 }) * 60 * 60 * 1000)
           : null,
     }
-  })
+  }
 
-  const createdOrders = await prisma.order.createMany({ data: orderData })
-  console.log(`Seeded ${createdOrders.count} orders.`)
+  await logExecutionTime("Seeding orders", async () => {
+    const fakeOrders = faker.helpers.multiple(fakeOrder, { count })
+
+    const createdOrders = await prisma.order.createMany({ data: fakeOrders, skipDuplicates: true })
+    console.log(`Seeded ${createdOrders.count} orders.`)
+  })
 
   // Get the product ID range
   const products = await prisma.product.findMany()
@@ -92,10 +103,16 @@ export const main = async (count = 10) => {
   const orders = await prisma.order.findMany()
 
   // + Seed OrderItems with stock validation
-  const orderItemsData = []
+  const orderItemsData: {
+    orderId: number
+    productId: number
+    quantity: number
+    unitPrice: number
+    totalPrice: number
+  }[] = []
   for (let i = 1; i <= count; i++) {
     // Generate random number of items per order
-    const numberOfItems = faker.number.int({ min: 1, max: 7 })
+    const numberOfItems = faker.number.int({ min: 1, max: 3 })
     let orderTotalAmount = 0
 
     for (let j = 0; j < numberOfItems; j++) {
@@ -142,15 +159,21 @@ export const main = async (count = 10) => {
     newStock: products.find((p) => Number(p.id) === productId)!.stock - quantity,
   }))
 
-  await Promise.all(
-    stockUpdates.map(({ id, newStock }) =>
-      prisma.product.update({
-        where: { id },
-        data: { stock: newStock },
-      })
-    )
+  await logExecutionTime(
+    "Updating product stock",
+    async () =>
+      await Promise.all(
+        stockUpdates.map(({ id, newStock }) =>
+          prisma.product.update({
+            where: { id },
+            data: { stock: newStock },
+          })
+        )
+      )
   )
 
-  await prisma.orderItem.createMany({ data: orderItemsData })
-  console.log(`Seeded ${orderItemsData.length} order items.`)
+  await logExecutionTime("Seeding order items", async () => {
+    await prisma.orderItem.createMany({ data: orderItemsData, skipDuplicates: true })
+    console.log(`Seeded ${orderItemsData.length} order items.`)
+  })
 }
