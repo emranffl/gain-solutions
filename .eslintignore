@@ -5,3 +5,4 @@ dist/
 next.config.js
 tsconfig.json
 *test*
+vercel-seed.js
