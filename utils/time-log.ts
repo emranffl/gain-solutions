@@ -1,7 +1,7 @@
 import hd from "humanize-duration"
 import { performance } from "perf_hooks"
 
-const prettyElapsedTime = (elapsedMs: Parameters<typeof hd>[0]) =>
+export const prettyElapsedTime = (elapsedMs: Parameters<typeof hd>[0]) =>
   hd(elapsedMs, { largest: 2, round: true, units: ["h", "m", "s", "ms"] })
 
 /**

@@ -1,179 +1,246 @@
 import { faker } from "@faker-js/faker"
 import { OrderStatus, PrismaClient, ProductCategory } from "@prisma/client"
 import { hash } from "bcrypt"
-import { logExecutionTime } from "../../utils/time-log"
+import { prettyElapsedTime } from "../../utils/time-log"
+import { prisma } from "../prisma-instance"
 
-const prisma = new PrismaClient()
+interface BatchProgress {
+  total: number
+  current: number
+  operation: string
+}
 
-export const main = async (count = 10) => {
-  console.log("Start seeding...")
-  // + Seed Users
-  const hashedPassword = await hash("alice1234", 10)
-  const staticUserData = [
-    {
-      name: "Alice",
-      email: "alice@gmail.com",
-      password: hashedPassword,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  ]
+export class BatchSeeder {
+  // Configuration
+  private DEFAULT_COUNT = 1000
+  private BATCH_SIZE
+  private PARALLEL_BATCHES
+  private prisma: PrismaClient
+  private progress: BatchProgress = { total: 0, current: 0, operation: "" }
 
-  const fakeUser = async () => {
-    const recentDate = faker.date.recent()
-    return {
-      name: faker.person.fullName(),
-      email: faker.internet.email(),
-      password: await hash(faker.internet.password(), 10),
-      createdAt: recentDate,
-      updatedAt: recentDate,
-    }
+  constructor({ parallelBatches, batchSize }: { parallelBatches: number; batchSize: number }) {
+    this.prisma = prisma
+    this.BATCH_SIZE = batchSize
+    this.PARALLEL_BATCHES = parallelBatches
   }
 
-  await logExecutionTime("Seeding users", async () => {
-    const fakeUsers = async () => faker.helpers.multiple(fakeUser, { count: count - 1 })
-    let userData = [...staticUserData, ...(await Promise.all(await fakeUsers()))]
-
-    await prisma.user.createMany({ data: userData, skipDuplicates: true })
-    console.log(`Seeded ${userData.length} users.`)
-  })
-
-  // Get the user ID range
-  const users = await prisma.user.findMany()
-  const userIds = users.map((user) => user.id).sort()
-  const { min: minUserId, max: maxUserId } = {
-    min: userIds[0],
-    max: userIds[userIds.length - 1],
+  private updateProgress(increment: number) {
+    this.progress.current += increment
+    const percentage = ((this.progress.current / this.progress.total) * 100).toFixed(2)
+    process.stdout.write(
+      `\r${this.progress.operation}: ${percentage}% (${this.progress.current}/${this.progress.total})`
+    )
   }
 
-  // + Seed Products
-  const fakeProduct = () => {
-    return {
-      name: faker.commerce.productName(),
-      description: faker.commerce.productDescription(),
-      price: parseFloat(
-        faker.commerce.price({
-          dec: 2,
-          min: 100,
-          max: 1_00_000,
+  private async generateUserBatch(size: number, isFirstBatch: boolean = false) {
+    const staticUser = isFirstBatch
+      ? [
+          {
+            name: "Alice",
+            email: "alice@gmail.com",
+            password: await hash("alice1234", 10),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ]
+      : []
+
+    const passwords = await Promise.all(
+      Array(size)
+        .fill(0)
+        .map(() => hash(faker.internet.password(), 10))
+    )
+
+    const users = Array(size)
+      .fill(0)
+      .map((_, i) => {
+        const recentDate = faker.date.recent()
+        return {
+          name: faker.person.fullName(),
+          email: faker.internet.email().toLocaleLowerCase(),
+          password: passwords[i],
+          createdAt: recentDate,
+          updatedAt: recentDate,
+        }
+      })
+
+    return [...staticUser, ...users]
+  }
+
+  private generateProductBatch(size: number) {
+    return Array(size)
+      .fill(0)
+      .map(() => ({
+        name: faker.commerce.productName(),
+        description: faker.commerce.productDescription(),
+        price: parseFloat(faker.commerce.price({ dec: 2, min: 100, max: 1_00_000 })),
+        stock: faker.number.int({ min: 1, max: 100 }),
+        category: faker.helpers.arrayElement(Object.values(ProductCategory)),
+      }))
+  }
+
+  private async processBatch(batchIndex: number, batchSize: number, totalRecords: number) {
+    const isFirstBatch = batchIndex === 0
+    const currentBatchSize = Math.min(batchSize, totalRecords - batchIndex * batchSize)
+
+    try {
+      // Generate and insert users
+      const users = await this.generateUserBatch(currentBatchSize - 1, isFirstBatch)
+      await this.prisma.user.createMany({
+        data: users,
+        skipDuplicates: true,
+      })
+      this.updateProgress(users.length)
+
+      // Get user ID range for this batch
+      const batchUsers = await this.prisma.user.findMany({
+        orderBy: { id: "desc" },
+        take: currentBatchSize,
+      })
+      const userIds = batchUsers.map((u) => u.id)
+
+      // Generate and insert products
+      const products = this.generateProductBatch(currentBatchSize)
+      await this.prisma.product.createMany({
+        data: products,
+        skipDuplicates: true,
+      })
+
+      // Get product IDs for this batch
+      const batchProducts = await this.prisma.product.findMany({
+        orderBy: { id: "desc" },
+        take: currentBatchSize,
+      })
+
+      // Generate orders and order items
+      const orders = Array(currentBatchSize)
+        .fill(0)
+        .map(() => {
+          const status = faker.helpers.arrayElement(Object.values(OrderStatus))
+          const recentDate = faker.date.recent()
+          return {
+            userId: faker.helpers.arrayElement(userIds),
+            totalAmount: 0,
+            status,
+            createdAt: recentDate,
+            updatedAt: recentDate,
+            canceledAt:
+              status === OrderStatus.CANCELED
+                ? new Date(recentDate.getTime() + faker.number.int({ min: 1, max: 24 }) * 60 * 60 * 1000)
+                : null,
+          }
         })
-      ),
-      stock: faker.number.int({ min: 1, max: 100 }),
-      category: faker.helpers.arrayElement(Object.values(ProductCategory)),
-    }
-  }
 
-  await logExecutionTime("Seeding products", async () => {
-    const fakeProducts = faker.helpers.multiple(fakeProduct, { count })
+      const createdOrders = await this.prisma.order.createMany({
+        data: orders,
+        skipDuplicates: true,
+      })
 
-    await prisma.product.createMany({ data: fakeProducts, skipDuplicates: true })
-    console.log(`Seeded ${fakeProducts.length} products.`)
-  })
+      // Get order IDs for this batch
+      const batchOrders = await this.prisma.order.findMany({
+        orderBy: { id: "desc" },
+        take: currentBatchSize,
+      })
 
-  // + Seed Orders with random items
-  const fakeOrder = () => {
-    const status = faker.helpers.arrayElement(Object.values(OrderStatus))
-    const recentDate = faker.date.recent()
-    return {
-      userId: faker.number.int({ min: Number(minUserId), max: Number(maxUserId) }), // Use the seeded user ID range
-      totalAmount: 0, // Will be calculated based on OrderItems
-      status,
-      createdAt: recentDate,
-      updatedAt: recentDate,
-      canceledAt:
-        status === OrderStatus.CANCELED
-          ? // Add random hours to the recent date
-            new Date(recentDate.getTime() + faker.number.int({ min: 1, max: 24 }) * 60 * 60 * 1000)
-          : null,
-    }
-  }
+      // Generate and insert order items
+      const orderItems = []
+      const stockUpdates = new Map()
 
-  await logExecutionTime("Seeding orders", async () => {
-    const fakeOrders = faker.helpers.multiple(fakeOrder, { count })
+      for (const order of batchOrders) {
+        const numberOfItems = faker.number.int({ min: 1, max: 3 })
+        let orderTotal = 0
 
-    const createdOrders = await prisma.order.createMany({ data: fakeOrders, skipDuplicates: true })
-    console.log(`Seeded ${createdOrders.count} orders.`)
-  })
+        for (let i = 0; i < numberOfItems; i++) {
+          const product = faker.helpers.arrayElement(batchProducts)
+          const currentStock = stockUpdates.get(product.id) ?? product.stock
 
-  // Get the product ID range
-  const products = await prisma.product.findMany()
-  const productIds = products.map((product) => product.id).sort()
-  const { minId, maxId } = { minId: productIds[0], maxId: productIds[productIds.length - 1] }
-  // Get the orders
-  const orders = await prisma.order.findMany()
+          if (currentStock === 0) continue
 
-  // + Seed OrderItems with stock validation
-  const orderItemsData: {
-    orderId: number
-    productId: number
-    quantity: number
-    unitPrice: number
-    totalPrice: number
-  }[] = []
-  for (let i = 1; i <= count; i++) {
-    // Generate random number of items per order
-    const numberOfItems = faker.number.int({ min: 1, max: 3 })
-    let orderTotalAmount = 0
+          const quantity = faker.number.int({ min: 1, max: Math.min(currentStock, 10) })
+          const unitPrice = parseFloat(product.price.toString())
+          const totalPrice = unitPrice * quantity
 
-    for (let j = 0; j < numberOfItems; j++) {
-      const productId = faker.number.int({ min: Number(minId), max: Number(maxId) })
-      const product = products.find((product) => Number(product.id) === productId)
+          orderItems.push({
+            orderId: order.id,
+            productId: product.id,
+            quantity,
+            unitPrice,
+            totalPrice,
+          })
 
-      if (!product) continue // Skip if product doesn't exist
-      if (product.stock === 0) continue // Skip if product is out of stock
+          orderTotal += totalPrice
+          stockUpdates.set(product.id, currentStock - quantity)
+        }
 
-      const maxOrderQuantity = Math.min(product.stock, 10)
-      const quantity = faker.number.int({ min: 1, max: maxOrderQuantity })
-
-      // Validate that the order quantity does not exceed the stock
-      if (quantity > product.stock) {
-        console.log(`Skipping product ${productId} due to insufficient stock`)
-        continue
+        // Update order total
+        if (order.status !== OrderStatus.CANCELED && orderTotal > 0) {
+          await this.prisma.order.update({
+            where: { id: order.id },
+            data: { totalAmount: orderTotal },
+          })
+        }
       }
 
-      const unitPrice = parseFloat(product.price.toString())
-      const totalPrice = unitPrice * quantity
-      orderTotalAmount += totalPrice
+      // Batch insert order items
+      if (orderItems.length > 0) {
+        await this.prisma.orderItem.createMany({
+          data: orderItems,
+          skipDuplicates: true,
+        })
+      }
 
-      orderItemsData.push({
-        orderId: i,
-        productId,
-        quantity,
-        unitPrice,
-        totalPrice,
-      })
-    }
-
-    const order = orders.find((order) => Number(order.id) === i)
-
-    // Update the total amount for the order
-    await prisma.order.update({
-      where: { id: i },
-      data: { totalAmount: order?.status === OrderStatus.CANCELED ? 0 : orderTotalAmount },
-    })
-  }
-
-  // + Batch update products stock
-  const stockUpdates = orderItemsData.map(({ productId, quantity }) => ({
-    id: productId,
-    newStock: products.find((p) => Number(p.id) === productId)!.stock - quantity,
-  }))
-
-  await logExecutionTime(
-    "Updating product stock",
-    async () =>
+      // Update product stock in batch
       await Promise.all(
-        stockUpdates.map(({ id, newStock }) =>
-          prisma.product.update({
-            where: { id },
+        Array.from(stockUpdates.entries()).map(([productId, newStock]) =>
+          this.prisma.product.update({
+            where: { id: productId },
             data: { stock: newStock },
           })
         )
       )
-  )
+    } catch (error) {
+      console.error(`Error in batch ${batchIndex}:`, error)
+      throw error
+    }
+  }
 
-  await logExecutionTime("Seeding order items", async () => {
-    await prisma.orderItem.createMany({ data: orderItemsData, skipDuplicates: true })
-    console.log(`Seeded ${orderItemsData.length} order items.`)
+  async seed(totalRecords: number = this.DEFAULT_COUNT) {
+    console.log(`🚀 Starting database seed for ${totalRecords} records...`)
+
+    const startTime = Date.now()
+    const totalBatches = Math.ceil(totalRecords / this.BATCH_SIZE)
+
+    this.progress = {
+      total: totalRecords,
+      current: 0,
+      operation: "Seeding database",
+    }
+
+    try {
+      // Process batches with limited parallelism
+      for (let i = 0; i < totalBatches; i += this.PARALLEL_BATCHES) {
+        const batchPromises = Array(Math.min(this.PARALLEL_BATCHES, totalBatches - i))
+          .fill(0)
+          .map((_, index) => this.processBatch(i + index, this.BATCH_SIZE, totalRecords))
+
+        await Promise.all(batchPromises)
+      }
+
+      const duration = Date.now() - startTime
+      console.log(`\n✅ Seeding completed in ${prettyElapsedTime(duration)}`)
+    } catch (error) {
+      console.error("❌ Seeding failed:", error)
+      throw error
+    } finally {
+      await this.prisma.$disconnect()
+    }
+  }
+}
+
+export const main = async (count: number) => {
+  const seeder = new BatchSeeder({
+    batchSize: 100,
+    parallelBatches: 7,
   })
+  await seeder.seed(count)
 }

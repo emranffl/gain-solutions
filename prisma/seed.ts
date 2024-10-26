@@ -32,7 +32,6 @@ async function run() {
 
     console.log(`Seeding with count: ${count}`)
     await main(count)
-    console.log("Seeding complete.")
   } catch (e) {
     console.error("Error during seeding process: ", e)
   } finally {

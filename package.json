@@ -30,6 +30,7 @@
     "db-push": "dotenv -c $NODE_ENV -- pnpm prisma db push",
     "db-push-pmy": "dotenv -c $NODE_ENV -- yarn prisma db push",
     "db-push-pmb": "dotenv -c $NODE_ENV -- bun prisma db push",
+    "db-benchmark": "dotenv -c $NODE_ENV -- ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seeder/benchmark.ts",
     "db-seed": "dotenv -c $NODE_ENV -- ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"
   },
   "dependencies": {
