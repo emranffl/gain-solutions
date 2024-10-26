@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     const { password, ...rest } = user
     return responseHandler({
       status: 200,
-      results: { token, user: rest },
+      results: { ...rest, token },
     })
   } catch (error) {
     console.error("Error signing in: ", error)

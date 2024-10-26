@@ -1,19 +1,38 @@
 import { faker } from "@faker-js/faker"
 import { OrderStatus, PrismaClient, ProductCategory } from "@prisma/client"
+import { hash } from "bcrypt"
 
 const prisma = new PrismaClient()
 
 export const main = async (count = 10) => {
   console.log("Start seeding...")
+  const hashedPassword = await hash("alice1234", 10)
+  const staticUserData = [
+    {
+      name: "Alice",
+      email: "alice@gmail.com",
+      password: hashedPassword,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  ]
 
   // + Seed Users
-  const userData = Array.from({ length: count }).map(() => ({
-    name: faker.person.fullName(),
-    email: faker.internet.email(),
-    password: faker.internet.password(),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  }))
+  let userData = [
+    ...staticUserData,
+    ...(await Promise.all(
+      Array.from({ length: count }).map(async () => {
+        const recentDate = faker.date.recent()
+        return {
+          name: faker.person.fullName(),
+          email: faker.internet.email(),
+          password: await hash(faker.internet.password(), 10),
+          createdAt: recentDate,
+          updatedAt: recentDate,
+        }
+      })
+    )),
+  ]
 
   await prisma.user.createMany({ data: userData })
   console.log(`Seeded ${userData.length} users.`)
@@ -84,6 +103,7 @@ export const main = async (count = 10) => {
       const product = products.find((product) => Number(product.id) === productId)
 
       if (!product) continue // Skip if product doesn't exist
+      if (product.stock === 0) continue // Skip if product is out of stock
 
       const maxOrderQuantity = Math.min(product.stock, 10)
       const quantity = faker.number.int({ min: 1, max: maxOrderQuantity })
