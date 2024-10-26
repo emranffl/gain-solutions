@@ -14,11 +14,6 @@ export async function GET(req: NextRequest) {
       deletedAt: null, // Exclude soft-deleted products
     }
 
-    // Retrieve the total count of products for pagination
-    const totalCount = await prisma.product.count({
-      where: query,
-    })
-
     // Retrieve products with pagination
     const products = await prisma.product.findMany({
       skip,
@@ -32,6 +27,11 @@ export async function GET(req: NextRequest) {
         ...Object.fromEntries(Object.keys(prisma.product.fields).map((field) => [field, true])),
         deletedAt: false,
       },
+    })
+
+    // Retrieve the total count of products for pagination
+    const totalCount = await prisma.product.count({
+      where: query,
     })
 
     const totalPages = Math.ceil(totalCount / limit)

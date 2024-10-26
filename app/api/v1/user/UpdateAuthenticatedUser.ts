@@ -34,7 +34,6 @@ export const updateAuthenticatedUser = async (req: NextRequest) => {
     })
   } catch (error) {
     console.error("Error updating user: ", error)
-
     return responseHandler({
       status: 500,
       error: "Internal Server Error",

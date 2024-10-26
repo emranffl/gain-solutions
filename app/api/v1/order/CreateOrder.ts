@@ -99,7 +99,6 @@ export const createOrder = async (req: NextRequest) => {
     })
   } catch (error) {
     console.error("Error creating order: ", error)
-
     return responseHandler({
       status: 500,
       error: "Internal Server Error",

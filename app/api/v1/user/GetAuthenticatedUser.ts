@@ -18,13 +18,6 @@ export const getAuthenticatedUser = async (req: NextRequest) => {
     const sort = searchParams.get("sort") || "createdAt"
     const order = searchParams.get("order") || "desc"
 
-    // Retrieve the total count of orders for pagination
-    const totalCount = await prisma.order.count({
-      where: {
-        userId: user.id,
-      },
-    })
-
     // Retrieve orders with pagination
     const orders = await prisma.order.findMany({
       skip,
@@ -34,6 +27,13 @@ export const getAuthenticatedUser = async (req: NextRequest) => {
       },
       orderBy: {
         [sort]: order,
+      },
+    })
+
+    // Retrieve the total count of orders for pagination
+    const totalCount = await prisma.order.count({
+      where: {
+        userId: user.id,
       },
     })
 
@@ -53,7 +53,6 @@ export const getAuthenticatedUser = async (req: NextRequest) => {
     })
   } catch (error) {
     console.error("Error retrieving user: ", error)
-
     return responseHandler({
       status: 500,
       error: "Internal Server Error",

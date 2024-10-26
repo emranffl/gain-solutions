@@ -1,4 +1,3 @@
-// app/api/sales-per-category/route.ts
 import { prisma } from "@prisma/prisma-instance"
 import { paginationHandler } from "@utils/pagination-handler"
 import { responseHandler } from "@utils/response-handler"
@@ -17,7 +16,9 @@ export async function GET(request: NextRequest) {
       },
       where: {
         order: {
-          status: "DELIVERED",
+          status: {
+            in: ["SHIPPED", "DELIVERED"],
+          },
         },
       },
     })
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
     // Convert the map to an array of category sales
     const categorySales = Array.from(categorySalesMap, ([category, totalSales]) => ({
       category,
-      totalSales,
+      totalSales: totalSales.toFixed(2),
     }))
 
     // Apply pagination to the aggregated results
