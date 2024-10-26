@@ -183,10 +183,9 @@ export class BatchSeeder {
 
       // Batch insert order items
       if (orderItems.length > 0) {
-        await this.prisma.orderItem.createMany({
-          data: orderItems,
-          skipDuplicates: true,
-        })
+        await this.prisma.$transaction([
+          this.prisma.orderItem.createMany({ data: orderItems, skipDuplicates: true }),
+        ])
       }
 
       // Update product stock in batch
