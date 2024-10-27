@@ -13,38 +13,70 @@ export async function GET(req: NextRequest) {
     const order = searchParams.get("order") || "desc"
     const searchQuery = searchParams.get("q")
     const minPrice = searchParams.get("minPrice")
-    const min = minPrice ? Number(minPrice) : undefined
+    let minP = minPrice ? Number(minPrice) : undefined
+    minP = minP && (minP < 0 ? 0 : minP)
     const maxPrice = searchParams.get("maxPrice")
-    const max = maxPrice ? Number(maxPrice) : undefined
+    const maxP = maxPrice ? Number(maxPrice) : undefined
     const price = searchParams.get("price")
+    const minStock = searchParams.get("minStock")
+    let minS = minStock ? Number(minStock) : undefined
+    minS = minS && (minS < 0 ? 0 : minS)
+    const maxStock = searchParams.get("maxStock")
+    const maxS = maxStock ? Number(maxStock) : undefined
+    const stock = searchParams.get("stock")
     const query: Prisma.ProductWhereInput = {
       deletedAt: null, // Exclude soft-deleted products
       name: {
         contains: searchQuery || undefined, // Filter products by query term
+        mode: "insensitive",
       },
-      description: {
-        contains: searchQuery || undefined, // Filter products by query term
-      },
+      OR: [
+        {
+          description: {
+            contains: searchQuery || undefined, // Filter products by query term
+            mode: "insensitive",
+          },
+        },
+      ],
       category: {
         equals: (searchParams.get("category") as ProductCategory) || undefined,
       },
       price:
-        min && max // Filter products by price range
+        minP && maxP // Filter products by price range
           ? {
-              gte: min,
-              lte: max,
+              gte: minP,
+              lte: maxP,
             }
-          : min // Filter products by minimum price
+          : minP // Filter products by minimum price
             ? {
-                gte: min,
+                gte: minP,
               }
-            : max // Filter products by maximum price
+            : maxP // Filter products by maximum price
               ? {
-                  lte: max,
+                  lte: maxP,
                 }
               : price // Filter products by exact price
                 ? {
                     equals: Number(price),
+                  }
+                : undefined,
+      stock:
+        minS && maxS // Filter products by stock range
+          ? {
+              gte: minS,
+              lte: maxS,
+            }
+          : minS // Filter products by minimum stock
+            ? {
+                gte: minS,
+              }
+            : maxS // Filter products by maximum stock
+              ? {
+                  lte: maxS,
+                }
+              : stock // Filter products by exact stock
+                ? {
+                    equals: Number(stock),
                   }
                 : undefined,
     }
