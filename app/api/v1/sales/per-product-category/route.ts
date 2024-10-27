@@ -80,7 +80,10 @@ import { NextRequest } from "next/server"
 
 export const maxDuration = 50
 export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams
   const { skip, limit, page } = paginationHandler(request)
+  const sort = searchParams.get("sort") || "totalSales" // Default sort by totalSales
+  const order = searchParams.get("order") === "asc" ? "ASC" : "DESC" // Default to DESC
 
   try {
     // Raw SQL query to aggregate total sales per product category
@@ -91,7 +94,8 @@ export async function GET(request: NextRequest) {
       JOIN "Order" o ON oi."orderId" = o.id
       WHERE o.status IN ('SHIPPED', 'DELIVERED')
       GROUP BY p.category
-      ORDER BY "totalSales" DESC
+      ORDER BY CASE WHEN ${sort} = 'totalSales' THEN SUM(oi."totalPrice") END ${order}, 
+               CASE WHEN ${sort} = 'category' THEN p.category END ${order}
       OFFSET ${skip}
       LIMIT ${limit}
     `) as any[]
