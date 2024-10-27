@@ -34,6 +34,8 @@
     "db-seed": "dotenv -c $NODE_ENV -- ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"
   },
   "dependencies": {
+    "@vercel/analytics": "^1.3.2",
+    "@vercel/speed-insights": "^1.0.14",
     "bcrypt": "^5.1.1",
     "jose": "^5.9.6",
     "jsonwebtoken": "^9.0.2",
