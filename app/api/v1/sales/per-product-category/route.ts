@@ -94,8 +94,12 @@ export async function GET(request: NextRequest) {
       JOIN "Order" o ON oi."orderId" = o.id
       WHERE o.status IN ('SHIPPED', 'DELIVERED')
       GROUP BY p.category
-      ORDER BY CASE WHEN ${sort} = 'totalSales' THEN SUM(oi."totalPrice") END ${order}, 
-               CASE WHEN ${sort} = 'category' THEN p.category END ${order}
+      ORDER BY 
+        CASE 
+          WHEN ${sort} = 'totalSales' THEN SUM(oi."totalPrice")
+          WHEN ${sort} = 'category' THEN p.category::text
+          ELSE NULL
+        END ${order}
       OFFSET ${skip}
       LIMIT ${limit}
     `) as any[]
