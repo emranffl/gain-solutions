@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     const stock = searchParams.get("stock")
     const query: Prisma.ProductWhereInput = {
       deletedAt: null, // Exclude soft-deleted products
-      OR: [
+      AND: [
         {
           name: {
             contains: searchQuery || undefined, // Filter products by query term
