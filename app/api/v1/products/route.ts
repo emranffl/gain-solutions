@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
         contains: searchQuery || undefined, // Filter products by query term
         mode: "insensitive",
       },
-      OR: [
+      AND: [
         {
           description: {
             contains: searchQuery || undefined, // Filter products by query term
