@@ -4,6 +4,7 @@ import { responseHandler } from "@utils/response-handler"
 import { responsePaginationHandler } from "@utils/response-pagination-handler"
 import { NextRequest } from "next/server"
 
+export const maxDuration = 30
 export async function GET(request: NextRequest) {
   const { skip, limit, page } = paginationHandler(request)
 
