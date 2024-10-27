@@ -17,6 +17,7 @@ export class BatchSeeder {
   private PARALLEL_BATCHES
   private prisma: PrismaClient
   private progress: BatchProgress = { total: 0, current: 0, operation: "" }
+  private startTime = Date.now()
 
   constructor({ parallelBatches, batchSize }: { parallelBatches: number; batchSize: number }) {
     this.prisma = prisma
@@ -27,8 +28,9 @@ export class BatchSeeder {
   private updateProgress(increment: number) {
     this.progress.current += increment
     const percentage = ((this.progress.current / this.progress.total) * 100).toFixed(2)
+    const elapsedMs = Date.now() - this.startTime
     process.stdout.write(
-      `\r${this.progress.operation}: ${percentage}% (${this.progress.current}/${this.progress.total})`
+      `\r${this.progress.operation}: ${percentage}% (${this.progress.current}/${this.progress.total}) | ${prettyElapsedTime(elapsedMs)}`
     )
   }
 
@@ -205,8 +207,8 @@ export class BatchSeeder {
 
   async seed(totalRecords: number = this.DEFAULT_COUNT) {
     console.log(`🚀 Starting database seed for ${totalRecords} records...`)
+    this.startTime = Date.now() // Start time when seeding begins
 
-    const startTime = Date.now()
     const totalBatches = Math.ceil(totalRecords / this.BATCH_SIZE)
 
     this.progress = {
@@ -225,7 +227,7 @@ export class BatchSeeder {
         await Promise.all(batchPromises)
       }
 
-      const duration = Date.now() - startTime
+      const duration = Date.now() - this.startTime
       console.log(`\n✅ Seeding completed in ${prettyElapsedTime(duration)}`)
     } catch (error) {
       console.error("❌ Seeding failed:", error)
@@ -238,7 +240,7 @@ export class BatchSeeder {
 
 export const main = async (count: number) => {
   const seeder = new BatchSeeder({
-    batchSize: 100,
+    batchSize: 50,
     parallelBatches: 7,
   })
   await seeder.seed(count)
