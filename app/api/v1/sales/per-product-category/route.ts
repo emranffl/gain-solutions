@@ -72,6 +72,7 @@
 //   }
 // }
 
+import { Prisma } from "@prisma/client"
 import { prisma } from "@prisma/prisma-instance"
 import { paginationHandler } from "@utils/pagination-handler"
 import { responseHandler } from "@utils/response-handler"
@@ -86,6 +87,8 @@ export async function GET(request: NextRequest) {
   const order = searchParams.get("order") === "asc" ? "ASC" : "DESC" // Default to DESC
 
   try {
+    const orderClause = sort === "totalSales" ? Prisma.sql`SUM(oi."totalPrice")` : Prisma.sql`p.category`
+
     // Raw SQL query to aggregate total sales per product category
     const salesPerCategory = (await prisma.$queryRaw`
       SELECT p.category, SUM(oi."totalPrice") AS "totalSales"
@@ -94,12 +97,7 @@ export async function GET(request: NextRequest) {
       JOIN "Order" o ON oi."orderId" = o.id
       WHERE o.status IN ('SHIPPED', 'DELIVERED')
       GROUP BY p.category
-      ORDER BY 
-        CASE 
-          WHEN ${sort} = 'totalSales' THEN SUM(oi."totalPrice")
-          WHEN ${sort} = 'category' THEN p.category::text
-          ELSE NULL
-        END ${order}
+      ORDER BY ${orderClause} ${Prisma.sql([order])}
       OFFSET ${skip}
       LIMIT ${limit}
     `) as any[]
