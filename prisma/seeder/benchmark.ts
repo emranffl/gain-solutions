@@ -184,9 +184,9 @@ export const main = async () => {
 
   const benchmark = new SeedingBenchmark()
   await benchmark.runBenchmark({
-    recordCounts: [100], // Start with a smaller number for testing
-    parallelBatchCounts: [3, 5, 7], // Test different parallel batch counts
-    batchSizes: [5, 10, 100], // Test different batch sizes
+    recordCounts: [1000], // Start with a smaller number for testing
+    parallelBatchCounts: [3, 5, 7, 9], // Test different parallel batch counts
+    batchSizes: [50, 100, 1000], // Test different batch sizes
     runsPerConfig: 3, // Number of runs per configuration to get average
   })
 }
