@@ -44,7 +44,7 @@ docker-compose up -d
 pnpm db-generate
 
 # Run migrations
-pnpm prisma db-push
+NODE_ENV=development pnpm db-push
 ```
 
 ### 6. Start the development server
@@ -64,19 +64,58 @@ The app should now be running on [http://localhost:3000](http://localhost:3000).
 NODE_ENV=development pnpm db-benchmark
 ```
 
+After running the benchmark seeder, you can run the seeder with the best configuration suggested by the benchmark.
+
 ### Running the Seeder
 
 ```bash
 # Seed the database
-NODE_ENV=development pnpm db-seed -t --count 1000
+NODE_ENV=development pnpm db-seed -t --count 100000
 ```
 
-## Project Structure
+## Database Indexing
 
-- `prisma/`: Contains Prisma schema and migration files
-- `app/api/`: Next.js pages and API routes
-- `prisma/seeder/`: Custom seeding scripts and configurations
-- `utils/`: Utility functions for logging and other tasks
+```sql
+-- Index on deletedAt to optimize filtering out soft-deleted products
+CREATE INDEX idx_product_deletedat ON "Product" ("deletedAt");
+
+-- Full-text search index for combined name and description
+CREATE INDEX idx_product_fulltext ON "Product" USING GIN (
+  to_tsvector('english', name || ' ' || description)
+);
+
+-- Index on category to optimize filtering by category
+CREATE INDEX idx_product_category ON "Product" ("category");
+
+-- Index on price to optimize range and equality searches
+CREATE INDEX idx_product_price ON "Product" ("price");
+
+-- Index on createdAt to optimize sorting by creation date
+CREATE INDEX idx_product_createdat ON "Product" ("createdAt");
+
+-- Index on Order status for SHIPPED and DELIVERED only
+CREATE INDEX idx_order_status_shipped_delivered ON "Order" (STATUS)
+WHERE
+  STATUS IN ('SHIPPED', 'DELIVERED');
+
+-- Index on OrderItem for orderId to optimize joins with the Order table
+CREATE INDEX idx_orderitem_orderid ON "OrderItem" ("orderId");
+
+-- Index on OrderItem for productId to optimize joins with the Product table
+CREATE INDEX idx_orderitem_productid ON "OrderItem" ("productId");
+
+-- Index on canceledAt in the Order table to optimize filtering out canceled orders
+CREATE INDEX idx_order_canceledat ON "Order" ("canceledAt");
+
+-- Index on userId in the Order table to optimize filtering and relations with the User table
+CREATE INDEX idx_order_userid ON "Order" ("userId");
+
+-- Index on name in the User table to optimize sorting and filtering by name
+CREATE INDEX idx_user_name ON "User" ("name");
+
+-- Index on email in the User table to optimize sorting and filtering by email
+CREATE INDEX idx_user_email ON "User" ("email");
+```
 
 ## Batch Seeder Documentation
 
@@ -86,24 +125,29 @@ The BatchSeeder supports configuration through the constructor:
 
 ```typescript
 const seeder = new BatchSeeder({
-	batchSize: 100, // Number of records per batch
-	parallelBatches: 7, // Number of parallel batches
+  batchSize: 100, // Number of records per batch
+  parallelBatches: 7, // Number of parallel batches
 })
 ```
-
-
 
 ### Usage
 
 ```typescript
 const main = async (count: number) => {
-	const seeder = new BatchSeeder({
-		batchSize: 100,
-		parallelBatches: 7,
-	})
-	await seeder.seed(count)
+  const seeder = new BatchSeeder({
+    batchSize: 100,
+    parallelBatches: 7,
+  })
+  await seeder.seed(count)
 }
 ```
+
+## Project Structure
+
+- `prisma/`: Contains Prisma schema and migration files
+- `app/api/`: Next.js pages and API routes
+- `prisma/seeder/`: Custom seeding scripts and configurations
+- `utils/`: Utility functions for logging and other tasks
 
 ### Supported Entities
 
@@ -114,7 +158,8 @@ const main = async (count: number) => {
 
 ## Approach to Implementing JWT Authentication
 
-[JWT Implementation Guide](./JWT%20Implementation%20Guide.md)
+Head over to the
+[JWT Implementation Guide](./JWT%20Implementation%20Guide.md) for a detailed explanation of the approach taken to implement JWT authentication.
 
 ## Troubleshooting
 
