@@ -72,7 +72,6 @@
 //   }
 // }
 
-import { Prisma } from "@prisma/client"
 import { prisma } from "@prisma/prisma-instance"
 import { paginationHandler } from "@utils/pagination-handler"
 import { responseHandler } from "@utils/response-handler"
@@ -84,11 +83,9 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const { skip, limit, page } = paginationHandler(request)
   const sort = searchParams.get("sort") || "totalSales" // Default sort by totalSales
-  const order = searchParams.get("order") === "asc" ? "ASC" : "DESC" // Default to DESC
+  const order = searchParams.get("order") === "asc" ? "asc" : "desc" // Default to DESC
 
   try {
-    const orderClause = sort === "totalSales" ? Prisma.sql`SUM(oi."totalPrice")` : Prisma.sql`p.category`
-
     // Raw SQL query to aggregate total sales per product category
     const salesPerCategory = (await prisma.$queryRaw`
       SELECT p.category, SUM(oi."totalPrice") AS "totalSales"
@@ -97,16 +94,27 @@ export async function GET(request: NextRequest) {
       JOIN "Order" o ON oi."orderId" = o.id
       WHERE o.status IN ('SHIPPED', 'DELIVERED')
       GROUP BY p.category
-      ORDER BY ${orderClause} ${Prisma.sql([order])}
       OFFSET ${skip}
       LIMIT ${limit}
     `) as any[]
 
     // Convert the results to match the desired format
-    const categorySales = salesPerCategory.map((item: any) => ({
-      category: item.category,
-      totalSales: Number(item.totalSales).toFixed(2),
-    }))
+    const categorySales = salesPerCategory
+      .map((item: any) => ({
+        category: item.category,
+        totalSales: Number(item.totalSales).toFixed(2),
+      }))
+      .sort((a, b) => {
+        if (sort === "totalSales") {
+          return order === "asc"
+            ? Number(a.totalSales) - Number(b.totalSales)
+            : Number(b.totalSales) - Number(a.totalSales)
+        } else {
+          return order === "desc"
+            ? a.category.localeCompare(b.category)
+            : b.category.localeCompare(a.category)
+        }
+      })
 
     // Get the total count for pagination
     const totalCountResult: any = await prisma.$queryRaw`
